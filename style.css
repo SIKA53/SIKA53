@@ -1,0 +1,29 @@
+body {
+  margin: 0;
+  overflow: hidden;
+  background: #000;
+  color: white;
+  font-family: sans-serif;
+}
+
+#ui {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  z-index: 10;
+}
+
+button {
+  padding: 8px 16px;
+  margin-right: 4px;
+  font-size: 16px;
+}
+
+#results {
+  margin-top: 8px;
+  font-size: 20px;
+}
+
+canvas {
+  display: block;
+}
