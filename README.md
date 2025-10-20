@@ -2,6 +2,16 @@
 
 This repository now includes a responsive Three.js-powered lotto machine prototype under [`app/`](app/). It was scaffolded with Vite and React and showcases real-time physics, a scripted draw sequence, and hooks for future enhancements such as audio cues or localization.
 
+## Zero-install demo
+
+The repository now ships with a pre-built static bundle inside [`docs/`](docs/). Push the branch to GitHub and enable **GitHub Pages** with the "Deploy from a branch" option that targets the `docs/` folder on your default branch. GitHub will publish the experience at
+
+```
+https://<your-account>.github.io/<your-repo>/
+```
+
+Once the page is live you can tap that link from any desktop or mobile browser—no npm commands required. The same `docs/index.html` file can also be opened directly from local storage or any static host if you prefer to deploy elsewhere.
+
 ## Features
 
 - **Interactive 3D chamber** built with Three.js, complete with lighting, glass materials, and animated camera tracks.
@@ -33,24 +43,13 @@ npm run dev
 
 Vite will print a local development URL (typically `http://localhost:5173`). Open it in your browser to interact with the lotto machine. The dev server supports hot module replacement for rapid iteration.
 
-### Quick Demo
-
-Launch an instantly shareable preview (desktop & mobile friendly) with:
-
-```bash
-npm run demo
-```
-
-Then open [http://localhost:4173](http://localhost:4173) in your browser. Because the preview server binds to `0.0.0.0`, you ca
-n also load the link from phones or tablets on the same network for a touch-first experience.
-
 ### Production Build
 
 ```bash
 npm run build
 ```
 
-The production-ready assets will be output to `app/dist/`. Preview the bundle with:
+The production-ready assets will be output to [`docs/`](docs/) so they can be hosted directly (for example via GitHub Pages). Preview the bundle locally with:
 
 ```bash
 npm run preview
