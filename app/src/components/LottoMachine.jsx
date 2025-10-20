@@ -11,6 +11,39 @@ const SLOT_POSITIONS = Array.from({ length: 6 }).map((_, index) =>
   new THREE.Vector3(-5 + index * 2, 1.4, 0)
 );
 
+const CAMERA_POSES = {
+  idle: {
+    landscape: {
+      position: { x: 10, y: 12, z: 22 },
+      target: { x: 0, y: 4.5, z: 0 }
+    },
+    portrait: {
+      position: { x: 8, y: 13, z: 26 },
+      target: { x: 0, y: 5.2, z: 0 }
+    }
+  },
+  draw: {
+    landscape: {
+      position: { x: 8, y: 6.5, z: 11 },
+      target: { x: 2.6, y: 3.8, z: 0 }
+    },
+    portrait: {
+      position: { x: 6.5, y: 7.2, z: 12.5 },
+      target: { x: 2.3, y: 4, z: 0.2 }
+    }
+  },
+  reveal: {
+    landscape: {
+      position: { x: 0, y: 6.5, z: 16 },
+      target: { x: 0, y: 2.2, z: 0 }
+    },
+    portrait: {
+      position: { x: 0, y: 7.5, z: 18.5 },
+      target: { x: 0, y: 2.4, z: 0 }
+    }
+  }
+};
+
 function createNumberTexture(number) {
   const size = 256;
   const canvas = document.createElement('canvas');
@@ -45,10 +78,18 @@ function sampleBalls(balls, count) {
   return shuffled.slice(0, count);
 }
 
+function getCameraPose(key, aspect) {
+  const orientation = aspect < 1 ? 'portrait' : 'landscape';
+  const pose = CAMERA_POSES[key] ?? CAMERA_POSES.idle;
+  return pose[orientation] ?? pose.landscape;
+}
+
 const LottoMachine = forwardRef(function LottoMachine(_, ref) {
   const mountRef = useRef(null);
   const machineRef = useRef({});
   const animationRef = useRef();
+  const drawTimelineRef = useRef();
+  const cameraPoseRef = useRef('idle');
   const drawStateRef = useRef({
     isDrawing: false,
     drawnNumbers: [],
@@ -65,12 +106,13 @@ const LottoMachine = forwardRef(function LottoMachine(_, ref) {
     scene.fog = new THREE.Fog('#050712', 60, 120);
 
     const camera = new THREE.PerspectiveCamera(45, width / height, 0.1, 200);
-    camera.position.set(10, 12, 22);
 
     const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     renderer.setSize(width, height);
     renderer.outputColorSpace = THREE.SRGBColorSpace;
+    renderer.domElement.style.width = '100%';
+    renderer.domElement.style.height = '100%';
     container.appendChild(renderer.domElement);
 
     const controls = new OrbitControls(camera, renderer.domElement);
@@ -78,7 +120,60 @@ const LottoMachine = forwardRef(function LottoMachine(_, ref) {
     controls.autoRotate = true;
     controls.autoRotateSpeed = 0.6;
     controls.maxPolarAngle = Math.PI / 2.2;
+    controls.enablePan = false;
+    controls.minDistance = 10;
+    controls.maxDistance = 34;
+    controls.zoomSpeed = 0.6;
     controls.target.set(0, 4.5, 0);
+
+    const getContainerSize = () => {
+      const bounds = container.getBoundingClientRect();
+      const nextWidth = Math.max(bounds.width || width, 1);
+      const nextHeight = Math.max(bounds.height || height, 1);
+      return {
+        width: nextWidth,
+        height: nextHeight,
+        aspect: nextWidth / nextHeight
+      };
+    };
+
+    const setCameraPose = (
+      poseKey,
+      { animated = true, duration = 1.2, ease = 'power2.inOut' } = {}
+    ) => {
+      cameraPoseRef.current = poseKey;
+      const { aspect } = getContainerSize();
+      const { position, target } = getCameraPose(poseKey, aspect);
+
+      if (!animated) {
+        gsap.killTweensOf(camera.position);
+        gsap.killTweensOf(controls.target);
+        camera.position.set(position.x, position.y, position.z);
+        controls.target.set(target.x, target.y, target.z);
+        controls.update();
+        return;
+      }
+
+      gsap.to(camera.position, {
+        duration,
+        x: position.x,
+        y: position.y,
+        z: position.z,
+        ease
+      });
+
+      gsap.to(controls.target, {
+        duration,
+        x: target.x,
+        y: target.y,
+        z: target.z,
+        ease,
+        onUpdate: () => controls.update(),
+        onComplete: () => controls.update()
+      });
+    };
+
+    setCameraPose('idle', { animated: false });
 
     const world = new World({ gravity: new Vec3(0, -9.82, 0) });
     world.allowSleep = true;
@@ -303,16 +398,22 @@ const LottoMachine = forwardRef(function LottoMachine(_, ref) {
     animationRef.current = requestAnimationFrame(step);
 
     const handleResize = () => {
-      const { clientWidth, clientHeight } = container;
-      renderer.setSize(clientWidth, clientHeight);
-      camera.aspect = clientWidth / clientHeight;
+      if (!container) return;
+      const { width: nextWidth, height: nextHeight } = getContainerSize();
+      renderer.setSize(nextWidth, nextHeight);
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+      camera.aspect = nextWidth / nextHeight;
       camera.updateProjectionMatrix();
+      setCameraPose(cameraPoseRef.current, { animated: false });
     };
 
     const resetMachine = () => {
       drawStateRef.current.isDrawing = false;
       drawStateRef.current.drawnNumbers = [];
       drawStateRef.current.callbacks = null;
+
+      drawTimelineRef.current?.kill?.();
+      drawTimelineRef.current = undefined;
 
       balls.forEach((ball) => {
         ball.drawn = false;
@@ -329,24 +430,19 @@ const LottoMachine = forwardRef(function LottoMachine(_, ref) {
         ball.body.velocity.set(0, 0, 0);
         ball.body.angularVelocity.set(0, 0, 0);
         ball.body.quaternion.set(0, 0, 0, 1);
+        ball.mesh.rotation.set(0, 0, 0);
+        ball.mesh.position.set(
+          ball.body.position.x,
+          ball.body.position.y,
+          ball.body.position.z
+        );
         ball.mesh.visible = true;
       });
 
+      gsap.killTweensOf(camera.position);
+      gsap.killTweensOf(controls.target);
       controls.autoRotate = true;
-      gsap.to(camera.position, {
-        duration: 1.2,
-        x: 10,
-        y: 12,
-        z: 22,
-        ease: 'power2.inOut'
-      });
-      gsap.to(controls.target, {
-        duration: 1.2,
-        x: 0,
-        y: 4.5,
-        z: 0,
-        ease: 'power2.inOut'
-      });
+      setCameraPose('idle');
     };
 
     const animateDrawnBall = (ball, index, callbacks) => {
@@ -398,53 +494,39 @@ const LottoMachine = forwardRef(function LottoMachine(_, ref) {
       const selection = sampleBalls(balls, 6);
       if (selection.length < 6) return;
 
+      drawTimelineRef.current?.kill?.();
+      drawTimelineRef.current = undefined;
+
       drawStateRef.current.isDrawing = true;
       drawStateRef.current.drawnNumbers = [];
       drawStateRef.current.callbacks = callbacks;
 
       controls.autoRotate = false;
-      gsap.to(camera.position, {
-        duration: 1.2,
-        x: 8,
-        y: 6.5,
-        z: 11,
-        ease: 'power2.inOut'
-      });
-      gsap.to(controls.target, {
-        duration: 1.2,
-        x: 2.6,
-        y: 3.8,
-        z: 0,
-        ease: 'power2.inOut'
-      });
+      setCameraPose('draw');
 
       const master = gsap.timeline({
         onComplete: () => {
-          gsap.to(camera.position, {
-            duration: 1.4,
-            x: 0,
-            y: 6.5,
-            z: 16,
-            ease: 'power2.inOut'
-          });
-          gsap.to(controls.target, {
-            duration: 1.4,
-            x: 0,
-            y: 2.2,
-            z: 0,
-            ease: 'power2.inOut'
-          });
+          setCameraPose('reveal', { duration: 1.4 });
           drawStateRef.current.isDrawing = false;
+          drawTimelineRef.current = undefined;
           callbacks?.onComplete?.([...drawStateRef.current.drawnNumbers]);
         }
       });
 
       selection.forEach((ball, index) => {
-        master.call(() => {
-          animateDrawnBall(ball, index, callbacks);
-        }, null, index * DRAW_INTERVAL);
+        master.add(animateDrawnBall(ball, index, callbacks), index * DRAW_INTERVAL);
       });
+
+      drawTimelineRef.current = master;
     };
+
+    const resizeObserver =
+      typeof ResizeObserver !== 'undefined'
+        ? new ResizeObserver(() => handleResize())
+        : null;
+
+    resizeObserver?.observe(container);
+    handleResize();
 
     window.addEventListener('resize', handleResize);
 
@@ -461,6 +543,7 @@ const LottoMachine = forwardRef(function LottoMachine(_, ref) {
 
     return () => {
       cancelAnimationFrame(animationRef.current);
+      resizeObserver?.disconnect();
       window.removeEventListener('resize', handleResize);
       renderer.dispose();
       scene.traverse((child) => {

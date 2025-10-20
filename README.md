@@ -8,6 +8,7 @@ This repository now includes a responsive Three.js-powered lotto machine prototy
 - **Physics-driven lotto balls** using `cannon-es`, continuously tumbling until six unique balls are emitted through the draw tube.
 - **Cinematic draw flow** orchestrated with GSAP timelines, including tube zoom, front-facing finale, and number slot alignment.
 - **Responsive UI** for desktop and mobile, featuring Draw and Retry controls plus live number highlights.
+- **Viewport-aware cameras** that retarget their tracks for portrait and landscape screens so the experience feels native on phones, tablets, and PCs alike.
 - **Extensibility hooks** to plug in custom audio cues and localized copy without rewriting core logic.
 
 ## Getting Started
@@ -31,6 +32,17 @@ npm run dev
 ```
 
 Vite will print a local development URL (typically `http://localhost:5173`). Open it in your browser to interact with the lotto machine. The dev server supports hot module replacement for rapid iteration.
+
+### Quick Demo
+
+Launch an instantly shareable preview (desktop & mobile friendly) with:
+
+```bash
+npm run demo
+```
+
+Then open [http://localhost:4173](http://localhost:4173) in your browser. Because the preview server binds to `0.0.0.0`, you ca
+n also load the link from phones or tablets on the same network for a touch-first experience.
 
 ### Production Build
 

@@ -51,6 +51,7 @@ body {
 .controls {
   display: flex;
   gap: 0.75rem;
+  flex-wrap: wrap;
 }
 
 button {
@@ -170,13 +171,34 @@ button:not(:disabled):hover {
   .controls {
     width: 100%;
     justify-content: flex-start;
+    gap: 0.5rem;
   }
 
   button {
-    flex: 1;
+    flex: 1 1 calc(50% - 0.5rem);
+    min-width: 9rem;
   }
 
   .numbers {
     grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+@media (max-width: 480px) {
+  button {
+    flex: 1 1 100%;
+    min-width: auto;
+  }
+
+  .machine-wrapper {
+    min-height: clamp(320px, 72vh, 680px);
+  }
+
+  .results {
+    gap: 1rem;
+  }
+
+  .numbers {
+    grid-template-columns: repeat(2, 1fr);
   }
 }
